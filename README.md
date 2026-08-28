@@ -1,5 +1,7 @@
 # ViewDoctor
 
+<img src="docs/assets/viewdoctor-icon-1024.png" alt="ViewDoctor" width="120">
+
 **Static analysis for SwiftUI, multi-module Swift projects, and AI coding agents.**
 
 ViewDoctor gives developers and coding agents compact, deterministic feedback
