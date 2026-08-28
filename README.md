@@ -120,7 +120,7 @@ jobs:
 
 Set `upload-sarif: false` when the workflow cannot grant
 `security-events: write`, such as a restricted fork workflow. Use a full
-release tag such as `v0.1.4` when you need an immutable dependency; `v0` is
+release tag such as `v0.1.5` when you need an immutable dependency; `v0` is
 the maintained major-version pointer.
 
 ## Output contract
@@ -154,7 +154,7 @@ machine, and expose scans and module graphs to coding agents. The CLI remains
 the source of truth; the skill and MCP server are thin adapters.
 
 The release also includes a macOS MCP Bundle. Install
-[`ViewDoctor-v0.1.4.mcpb`](https://github.com/KamnevVladimir/ViewDoctor/releases/download/v0.1.4/ViewDoctor-v0.1.4.mcpb)
+[`ViewDoctor-v0.1.5.mcpb`](https://github.com/KamnevVladimir/ViewDoctor/releases/download/v0.1.5/ViewDoctor-v0.1.5.mcpb)
 in any client that supports MCPB, or discover it in the official MCP Registry as
 `io.github.kamnevvladimir/viewdoctor`. The bundle contains the local CLI and
 stdio adapter; repository source is not sent to a hosted service.

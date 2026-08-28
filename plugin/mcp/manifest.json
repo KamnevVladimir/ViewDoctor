@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "viewdoctor",
   "display_name": "ViewDoctor",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Run local deterministic SwiftUI diff checks with module ownership.",
   "long_description": "ViewDoctor maps SwiftPM, Tuist, Xcode, and folder-derived modules before scanning changed SwiftUI files. The bundle runs locally, returns bounded findings, and does not upload repository source.",
   "author": {

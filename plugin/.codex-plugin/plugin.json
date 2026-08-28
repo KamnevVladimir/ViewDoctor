@@ -1,6 +1,6 @@
 {
   "name": "viewdoctor",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Local SwiftUI diff checks with module ownership for people and coding agents.",
   "author": {
     "name": "KamnevApps"
