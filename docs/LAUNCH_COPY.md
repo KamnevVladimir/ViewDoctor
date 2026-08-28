@@ -3,6 +3,14 @@
 These drafts share facts, not paragraphs. Each destination gets the structure
 its readers expect.
 
+## Published
+
+- GitHub: <https://github.com/KamnevVladimir/ViewDoctor>
+- Product Hunt: <https://www.producthunt.com/products/viewdoctor?launch=viewdoctor>
+  (scheduled for August 29, 2026 at 12:01 a.m. PT)
+- Reddit: <https://www.reddit.com/r/SwiftUI/comments/1w0vaou/i_built_a_local_swiftui_analyzer_that_maps/>
+- Product page: <https://kamnevapps.com/viewdoctor/>
+
 ## Product Hunt
 
 Name: `ViewDoctor`
@@ -32,7 +40,7 @@ First comment:
 > The next decision is rule coverage. Which deterministic SwiftUI check would
 > save you the most review time without creating warning fatigue?
 
-Topics: `Developer Tools`, `Open Source`, `GitHub`
+Published topics: `Developer Tools`, `GitHub`
 
 ## Reddit / r/SwiftUI
 
@@ -66,7 +74,7 @@ Body:
 > repeatedly costs review time in a large modular codebase, and what would keep
 > that rule from becoming noisy?
 
-Flair: `Promotion` if the community form offers it.
+Published flair: `Promotion (must include link to source code)`.
 
 ## OpenAI plugin
 
