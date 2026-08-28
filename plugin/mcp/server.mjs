@@ -7,7 +7,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const server = new McpServer({ name: "viewdoctor", version: "0.1.5" });
+const server = new McpServer({ name: "viewdoctor", version: "0.1.6" });
 
 export function runViewDoctor(args, options = {}) {
   const executable = options.executable ?? process.env.VIEWDOCTOR_BIN ?? "viewdoctor";
