@@ -92,19 +92,36 @@ roadmap items rather than implied capabilities.
 
 ## GitHub Action
 
+Run ViewDoctor in CI on a macOS runner with Swift 6.2 or newer. The action
+builds the pinned Swift package, scans the checked-out repository, and can
+upload SARIF findings to GitHub Code Scanning.
+
 ```yaml
+name: ViewDoctor
+
+on:
+  pull_request:
+
 permissions:
   contents: read
   security-events: write
 
-steps:
-  - uses: actions/checkout@v4
-    with:
-      fetch-depth: 0
-  - uses: KamnevVladimir/ViewDoctor@v0
-    with:
-      diff-base: origin/main
+jobs:
+  analyze:
+    runs-on: macos-26
+    steps:
+  - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: KamnevVladimir/ViewDoctor@v0
+        with:
+          diff-base: origin/main
 ```
+
+Set `upload-sarif: false` when the workflow cannot grant
+`security-events: write`, such as a restricted fork workflow. Use a full
+release tag such as `v0.1.4` when you need an immutable dependency; `v0` is
+the maintained major-version pointer.
 
 ## Output contract
 
@@ -135,6 +152,12 @@ The repository contains a Codex/OpenAI skill and local MCP server in `plugin/`.
 The MCP tools call the same CLI without a shell, keep source on the local
 machine, and expose scans and module graphs to coding agents. The CLI remains
 the source of truth; the skill and MCP server are thin adapters.
+
+The release also includes a macOS MCP Bundle. Install
+`ViewDoctor-v0.1.4.mcpb` from the GitHub release in any client that supports
+MCPB, or discover it in the official MCP Registry as
+`io.github.kamnevvladimir/viewdoctor`. The bundle contains the local CLI and
+stdio adapter; repository source is not sent to a hosted service.
 
 ## Roadmap
 

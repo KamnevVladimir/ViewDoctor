@@ -1,5 +1,5 @@
 name: ViewDoctor SwiftUI Analysis
-description: Deterministic SwiftUI analysis for humans and coding agents
+description: Deterministic SwiftUI static analysis with module ownership
 author: KamnevApps
 inputs:
   path:
@@ -39,4 +39,3 @@ runs:
 branding:
   icon: activity
   color: purple
-
