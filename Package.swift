@@ -14,7 +14,14 @@ let package = Package(
     ],
     targets: [
         .target(name: "ViewDoctorCore"),
-        .target(name: "ViewDoctorGraph", dependencies: ["ViewDoctorCore"]),
+        .target(
+            name: "ViewDoctorGraph",
+            dependencies: [
+                "ViewDoctorCore",
+                .product(name: "SwiftParser", package: "swift-syntax"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+            ]
+        ),
         .target(name: "ViewDoctorDiscovery", dependencies: ["ViewDoctorCore", "ViewDoctorGraph"]),
         .target(
             name: "ViewDoctorSyntax",

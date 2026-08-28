@@ -76,15 +76,35 @@ public struct ScanReport: Codable, Equatable, Sendable {
 public struct ModuleGraphSummary: Codable, Equatable, Sendable {
     public let moduleCount: Int
     public let dependencyCount: Int
+    public let unresolvedDependencyCount: Int
+    public let diagnosticCount: Int
     public let providers: [String]
 
-    public static let empty = ModuleGraphSummary(moduleCount: 0, dependencyCount: 0, providers: [])
+    public static let empty = ModuleGraphSummary(
+        moduleCount: 0,
+        dependencyCount: 0,
+        unresolvedDependencyCount: 0,
+        diagnosticCount: 0,
+        providers: []
+    )
 
-    public init(moduleCount: Int, dependencyCount: Int, providers: [String]) {
+    public init(
+        moduleCount: Int,
+        dependencyCount: Int,
+        unresolvedDependencyCount: Int = 0,
+        diagnosticCount: Int = 0,
+        providers: [String]
+    ) {
         self.moduleCount = moduleCount
         self.dependencyCount = dependencyCount
+        self.unresolvedDependencyCount = unresolvedDependencyCount
+        self.diagnosticCount = diagnosticCount
         self.providers = providers.sorted()
     }
+}
+
+public enum ViewDoctorVersion {
+    public static let current = "0.1.7"
 }
 
 public struct SourceFile: Equatable, Sendable {

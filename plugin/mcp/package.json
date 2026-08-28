@@ -1,6 +1,6 @@
 {
   "name": "@kamnevapps/viewdoctor-mcp",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Local MCP adapter for ViewDoctor Swift static analysis.",
   "type": "module",
   "private": true,

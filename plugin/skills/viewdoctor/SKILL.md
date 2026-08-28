@@ -11,16 +11,20 @@ Use ViewDoctor after changing SwiftUI code or module relationships.
 
 1. From the repository root, prefer changed-file analysis:
 
-   `viewdoctor scan . --git-diff --format json`
+   `viewdoctor scan . --git-diff --format agent`
 
 2. If the branch has a known base revision, use:
 
-   `viewdoctor scan . --base <revision> --format json`
+   `viewdoctor scan . --base <revision> --format agent`
 
-3. Read only the returned findings. Fix error and warning findings first.
-4. Run the same command once after fixes. Do not repeatedly scan the entire
+3. For a pre-commit check, scan only the index and make warnings fail:
+
+   `viewdoctor scan . --staged --fail-on warning`
+
+4. Read only the returned findings. Fix error and warning findings first.
+5. Run the same command once after fixes. Do not repeatedly scan the entire
    repository when changed-file mode is sufficient.
-5. Use `viewdoctor graph .` when a finding's module ownership is surprising.
+6. Use `viewdoctor graph .` when a finding's module ownership is surprising.
 
 ## Rules
 
@@ -31,4 +35,3 @@ Use ViewDoctor after changing SwiftUI code or module relationships.
   safe for that call site.
 - If the executable is unavailable, report that installation is required; do
   not imitate ViewDoctor findings from memory.
-

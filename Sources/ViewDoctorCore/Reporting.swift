@@ -3,6 +3,7 @@ import Foundation
 public enum ReportFormat: String, Sendable {
     case text
     case json
+    case agent
     case sarif
 }
 
@@ -11,6 +12,8 @@ public enum Reporter {
         switch format {
         case .sarif:
             return try renderSARIF(report)
+        case .agent:
+            return try renderAgent(report)
         case .json:
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -23,6 +26,19 @@ public enum Reporter {
             lines.append("ViewDoctor: \(report.findings.count) finding(s) in \(report.scannedFileCount) file(s), \(report.modules.count) module(s).")
             return lines.joined(separator: "\n")
         }
+    }
+
+    private static func renderAgent(_ report: ScanReport) throws -> String {
+        let payload = AgentScanReport(
+            schemaVersion: 1,
+            filesScanned: report.scannedFileCount,
+            modulesScanned: report.modules.count,
+            graph: report.moduleGraph,
+            findings: report.findings.map(AgentFinding.init)
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return String(decoding: try encoder.encode(payload), as: UTF8.self)
     }
 
     private static func renderSARIF(_ report: ScanReport) throws -> String {
@@ -51,5 +67,35 @@ public enum Reporter {
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         return String(decoding: data, as: UTF8.self)
+    }
+}
+
+private struct AgentScanReport: Encodable {
+    let schemaVersion: Int
+    let filesScanned: Int
+    let modulesScanned: Int
+    let graph: ModuleGraphSummary
+    let findings: [AgentFinding]
+}
+
+private struct AgentFinding: Encodable {
+    let rule: String
+    let severity: Severity
+    let path: String
+    let line: Int
+    let column: Int
+    let module: String?
+    let message: String
+    let fix: String
+
+    init(_ finding: Finding) {
+        rule = finding.ruleID
+        severity = finding.severity
+        path = finding.file
+        line = finding.location.line
+        column = finding.location.column
+        module = finding.module
+        message = finding.message
+        fix = finding.remediation
     }
 }

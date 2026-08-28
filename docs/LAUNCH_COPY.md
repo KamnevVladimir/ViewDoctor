@@ -21,8 +21,8 @@ Description:
 
 > ViewDoctor scans a Git diff for repeated SwiftUI body work and task-lifetime
 > risks, then attaches ownership from SwiftPM, Tuist, or Xcode modules. It runs
-> locally, emits text, JSON, or SARIF, and currently ships three deliberately
-> narrow rules.
+> locally, separates changed-file and staged checks, emits compact agent JSON,
+> full JSON, or SARIF, and currently ships three deliberately narrow rules.
 
 First comment:
 
@@ -65,7 +65,7 @@ Body:
 >
 > Version 0.1 has three conservative rules: expensive construction, collection
 > transformations, and detached tasks inside SwiftUI body evaluation. Output is
-> text, JSON, or SARIF. The tool is MIT licensed, has no telemetry, and the
+> text, compact agent JSON, full JSON, or SARIF. The tool is MIT licensed, has no telemetry, and the
 > optional MCP adapter only calls the local CLI.
 >
 > Repo: https://github.com/KamnevVladimir/ViewDoctor

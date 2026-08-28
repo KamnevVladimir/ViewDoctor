@@ -14,6 +14,10 @@ inputs:
     description: Upload SARIF to GitHub code scanning
     required: false
     default: "true"
+  fail-on:
+    description: Lowest finding severity that fails the action (note, warning, or error)
+    required: false
+    default: "error"
 runs:
   using: composite
   steps:
@@ -21,21 +25,34 @@ runs:
       shell: bash
       run: swift build --package-path "$GITHUB_ACTION_PATH" -c release
     - name: Analyze Swift changes
+      id: analyze
       shell: bash
       env:
         INPUT_PATH: ${{ inputs.path }}
         DIFF_BASE: ${{ inputs.diff-base }}
+        FAIL_ON: ${{ inputs.fail-on }}
       run: |
-        args=(scan "$INPUT_PATH" --format sarif)
+        args=(scan "$INPUT_PATH" --format sarif --fail-on "$FAIL_ON")
         if [[ -n "$DIFF_BASE" ]]; then
           args+=(--base "$DIFF_BASE")
         fi
+        set +e
         "$GITHUB_ACTION_PATH/.build/release/viewdoctor" "${args[@]}" > viewdoctor.sarif
+        status=$?
+        set -e
+        echo "status=$status" >> "$GITHUB_OUTPUT"
+        if [[ "$status" -gt 1 ]]; then
+          exit "$status"
+        fi
     - name: Upload SARIF
       if: inputs.upload-sarif == 'true'
       uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: viewdoctor.sarif
+    - name: Enforce finding threshold
+      if: steps.analyze.outputs.status == '1'
+      shell: bash
+      run: exit 1
 branding:
   icon: activity
   color: purple

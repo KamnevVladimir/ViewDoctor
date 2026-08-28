@@ -17,8 +17,12 @@ jobs:
         run: swift test
       - name: Build release
         run: swift build -c release
+      - name: Smoke test CLI contract
+        run: |
+          .build/release/viewdoctor --help | grep -q -- "--staged"
+          .build/release/viewdoctor --version | grep -q "ViewDoctor 0.1.7"
       - name: Self scan
-        run: .build/release/viewdoctor scan . --format json > /tmp/viewdoctor.json
+        run: .build/release/viewdoctor scan . --format agent > /tmp/viewdoctor-agent.json
       - name: Test MCP adapter
         run: |
           npm ci --prefix plugin/mcp

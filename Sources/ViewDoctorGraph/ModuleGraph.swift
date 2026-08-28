@@ -33,18 +33,40 @@ public struct Module: Codable, Equatable, Sendable {
     }
 }
 
+public struct ModuleGraphDiagnostic: Codable, Equatable, Sendable {
+    public let code: String
+    public let provider: ModuleProvider
+    public let manifest: String
+    public let message: String
+
+    public init(code: String, provider: ModuleProvider, manifest: String, message: String) {
+        self.code = code
+        self.provider = provider
+        self.manifest = manifest
+        self.message = message
+    }
+}
+
 public struct ModuleGraph: Codable, Equatable, Sendable {
     public let modules: [Module]
+    public let diagnostics: [ModuleGraphDiagnostic]
 
-    public init(modules: [Module]) {
+    public init(modules: [Module], diagnostics: [ModuleGraphDiagnostic] = []) {
         var seen: Set<String> = []
         self.modules = modules.filter { seen.insert($0.id).inserted }.sorted { $0.id < $1.id }
+        self.diagnostics = diagnostics.sorted {
+            ($0.manifest, $0.code, $0.message) < ($1.manifest, $1.code, $1.message)
+        }
     }
 
     public var summary: ModuleGraphSummary {
-        ModuleGraphSummary(
+        let moduleIDs = Set(modules.map(\.id))
+        let dependencies = modules.flatMap(\.dependencies)
+        return ModuleGraphSummary(
             moduleCount: modules.count,
-            dependencyCount: modules.reduce(0) { $0 + $1.dependencies.count },
+            dependencyCount: dependencies.count,
+            unresolvedDependencyCount: dependencies.filter { !moduleIDs.contains($0) }.count,
+            diagnosticCount: diagnostics.count,
             providers: Array(Set(modules.map(\.provider.rawValue)))
         )
     }
@@ -72,4 +94,3 @@ public struct ModuleGraph: Codable, Equatable, Sendable {
         return result
     }
 }
-

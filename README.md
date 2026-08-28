@@ -7,7 +7,7 @@
 ViewDoctor maps modules from Swift Package Manager, Tuist, Xcode projects, and
 common source layouts before it scans SwiftUI code. Run it after a human or
 coding agent changes a diff; the result stays local and can be read as terminal
-text, versioned JSON, or SARIF.
+text, compact agent JSON, full versioned JSON, or SARIF.
 
 ```text
 Modules/Profile/Sources/ProfileView.swift:42:18: warning: VD001 [tuist:Modules/Profile/Profile]: DateFormatter is constructed inside a body property.
@@ -24,7 +24,8 @@ checks stable rule IDs, exact locations, module ownership, and bounded output:
 
 - It reads source locally and has no telemetry.
 - Manifest-derived identifiers keep findings useful in large repositories.
-- JSON includes explanations and remediation; SARIF works in code scanning.
+- Agent JSON keeps the location, module, message, and fix without repeating
+  verbose human context; full JSON keeps explanations for integrations.
 - Deterministic ordering and exit codes make the same command useful in CI.
 
 ViewDoctor complements the Swift compiler, SwiftLint, Periphery, and
@@ -44,8 +45,18 @@ swift build -c release
 Analyze only the current git diff—the recommended mode for coding agents:
 
 ```sh
-viewdoctor scan . --git-diff --format json
-viewdoctor scan . --base origin/main --format json
+viewdoctor scan . --git-diff --format agent
+viewdoctor scan . --base origin/main --format agent
+```
+
+`--git-diff` includes tracked changes and new untracked Swift files. A newly
+generated view is therefore not skipped just because it has not been added to
+Git yet.
+
+Run a strict pre-commit checkpoint against the index only:
+
+```sh
+viewdoctor scan . --staged --fail-on warning
 ```
 
 Inspect discovered modules and dependencies:
@@ -60,6 +71,28 @@ Generate GitHub Code Scanning output:
 viewdoctor scan . --base origin/main --format sarif > viewdoctor.sarif
 ```
 
+Discover commands and the installed version without opening the README:
+
+```sh
+viewdoctor --help
+viewdoctor --version
+```
+
+## Changed files, pre-commit, and CI
+
+These are separate checkpoints rather than aliases:
+
+| Workflow | Command | What is included |
+|---|---|---|
+| Agent or human checkpoint | `--git-diff` | tracked working-tree/index changes plus untracked Swift files |
+| Pull request checkpoint | `--base origin/main` | changes since the base plus untracked Swift files |
+| Pre-commit hook | `--staged` | staged Swift files only |
+| Full audit | no Git option | every discovered Swift file |
+
+Use `--fail-on warning` when warnings must block a hook or CI job. The default
+remains `error`, so adopting ViewDoctor does not silently turn every warning
+into a breaking gate.
+
 ## Multi-module architecture
 
 ViewDoctor builds a normalized graph from all manifests it discovers:
@@ -67,13 +100,22 @@ ViewDoctor builds a normalized graph from all manifests it discovers:
 | Build system | Discovery source | Module ownership |
 |---|---|---|
 | SwiftPM | `Package.swift` targets and dependencies | `Sources/<Target>` |
-| Tuist | `Project.swift` targets and dependencies | project/target source roots |
+| Tuist | `Project.swift` targets, source globs, and project paths | project/target source roots |
 | Xcode | `.xcodeproj/project.pbxproj` native targets | target source roots |
 | Folder layout | `Modules`, `Apps`, `Sources`, `Tests` | deterministic fallback |
 
 When providers overlap, the longest matching source root wins. The graph model
-has a reverse dependency-cone operation so diff analysis can validate the
-changed module and modules that depend on it without scanning unrelated features.
+exposes a reverse dependency-cone operation for integrations and future
+affected-module rules. The current three source rules still scan only the
+selected files; they do not pretend to validate unchanged dependents.
+
+Manifest calls are parsed as bounded SwiftSyntax expressions, so one target's
+dependencies cannot bleed into the next target. Tuist `.project(target:path:)`
+edges are resolved relative to the manifest or project root, and self-edges are
+discarded. `viewdoctor graph .` also emits diagnostics when a Tuist manifest
+imports `ProjectDescriptionHelpers`: helper-generated targets are executable
+Swift and cannot be expanded by a static parser. ViewDoctor reports that limit
+instead of presenting a partial graph as complete.
 
 ## Rules
 
@@ -116,18 +158,21 @@ jobs:
       - uses: KamnevVladimir/ViewDoctor@v0
         with:
           diff-base: origin/main
+          fail-on: warning
 ```
 
 Set `upload-sarif: false` when the workflow cannot grant
 `security-events: write`, such as a restricted fork workflow. Use a full
-release tag such as `v0.1.6` when you need an immutable dependency; `v0` is
+release tag such as `v0.1.7` when you need an immutable dependency; `v0` is
 the maintained major-version pointer.
 
 ## Output contract
 
-JSON reports include `schemaVersion`, relative source locations, stable rule
-IDs, module IDs, remediation, and a module graph summary. Integrations should
-consume JSON or SARIF instead of parsing human text.
+Full JSON reports include `schemaVersion`, relative source locations, stable
+rule IDs, module IDs, explanations, remediation, and a module graph summary.
+`--format agent` is a smaller JSON contract for the edit/fix loop: it retains
+the exact finding and fix but replaces the repeated module list with a count.
+Integrations that need every field should consume full JSON or SARIF.
 
 Optional `.viewdoctor.json`:
 
@@ -140,10 +185,14 @@ Optional `.viewdoctor.json`:
 }
 ```
 
+`minimumSeverity` controls which findings are reported. `--fail-on` controls
+only the process exit code, so a CI gate can be stricter without changing the
+shared report configuration.
+
 Exit codes:
 
-- `0`: scan completed without error-level findings;
-- `1`: at least one error-level finding;
+- `0`: scan completed below the `--fail-on` threshold;
+- `1`: at least one finding met the threshold;
 - `2`: arguments or scan startup failed.
 
 ## Coding-agent integration
@@ -154,10 +203,14 @@ machine, and expose scans and module graphs to coding agents. The CLI remains
 the source of truth; the skill and MCP server are thin adapters.
 
 The release also includes a macOS MCP Bundle. Install
-[`ViewDoctor-v0.1.6.mcpb`](https://github.com/KamnevVladimir/ViewDoctor/releases/download/v0.1.6/ViewDoctor-v0.1.6.mcpb)
+[`ViewDoctor-v0.1.7.mcpb`](https://github.com/KamnevVladimir/ViewDoctor/releases/download/v0.1.7/ViewDoctor-v0.1.7.mcpb)
 in any client that supports MCPB, or discover it in the official MCP Registry as
 `io.github.KamnevVladimir/viewdoctor`. The bundle contains the local CLI and
 stdio adapter; repository source is not sent to a hosted service.
+
+The workflow changes in this release came from concrete integration failures,
+not a larger rule wishlist. The evidence and scope decisions are documented in
+[`docs/PAIN_DRIVEN_UX.md`](docs/PAIN_DRIVEN_UX.md).
 
 ## Roadmap
 

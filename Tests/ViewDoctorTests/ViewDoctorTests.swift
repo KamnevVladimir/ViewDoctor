@@ -46,6 +46,20 @@ import ViewDoctorGraph
     #expect(json.contains("\"FeatureA\""))
 }
 
+@Test func agentReporterKeepsTheFixButDropsVerboseExplanation() throws {
+    let finding = Finding(
+        ruleID: "VD001", severity: .warning, file: "Sources/Demo.swift",
+        location: SourceLocation(line: 3, column: 5), module: "Demo",
+        message: "Risk", explanation: "A deliberately long explanation for a human report.", remediation: "Move it."
+    )
+    let report = ScanReport(scannedFileCount: 1, modules: ["Demo"], findings: [finding])
+    let json = try Reporter.render(report, format: .json)
+    let agent = try Reporter.render(report, format: .agent)
+    #expect(agent.utf8.count < json.utf8.count)
+    #expect(agent.contains("\"fix\":\"Move it.\""))
+    #expect(!agent.contains("deliberately long explanation"))
+}
+
 @Test func graphUsesLongestSourceRootAndBuildsReverseDependencyCone() {
     let graph = ModuleGraph(modules: [
         Module(id: "core", name: "Core", provider: .swiftPackage, root: "", sourceRoots: ["Sources/Core"]),
@@ -107,6 +121,99 @@ import ViewDoctorGraph
     #expect(graph.summary.providers == ["swiftpm", "tuist"])
 }
 
+@Test func boundsDependenciesToTheirTargetAndResolvesTuistProjectPaths() throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    let packageDirectory = root.appending(path: "Packages/Shared")
+    let coreDirectory = root.appending(path: "Modules/Core")
+    let featureDirectory = root.appending(path: "Modules/Feature")
+    try FileManager.default.createDirectory(at: packageDirectory, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: coreDirectory, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: featureDirectory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    try """
+    let package = Package(targets: [
+      .target(name: "Core"),
+      .target(name: "Feature", dependencies: ["Core"]),
+      .testTarget(name: "FeatureTests", dependencies: [.target(name: "Feature")])
+    ])
+    """.write(to: packageDirectory.appending(path: "Package.swift"), atomically: true, encoding: .utf8)
+    try """
+    let project = Project(name: "Core", targets: [
+      .target(name: "Core", sources: ["Sources/**"], dependencies: [])
+    ])
+    """.write(to: coreDirectory.appending(path: "Project.swift"), atomically: true, encoding: .utf8)
+    try """
+    let project = Project(name: "Feature", targets: [
+      .target(
+        name: "Feature",
+        sources: ["Sources/**"],
+        dependencies: [.project(target: "Core", path: "../Core")]
+      )
+    ])
+    """.write(to: featureDirectory.appending(path: "Project.swift"), atomically: true, encoding: .utf8)
+
+    let graph = try ModuleGraphBuilder().build(root: root)
+    let packageCore = "swiftpm:Packages/Shared/Core"
+    let packageFeature = graph.modules.first { $0.id == "swiftpm:Packages/Shared/Feature" }
+    let packageTests = graph.modules.first { $0.id == "swiftpm:Packages/Shared/FeatureTests" }
+    let tuistFeature = graph.modules.first { $0.id == "tuist:Modules/Feature/Feature" }
+    #expect(packageFeature?.dependencies == [packageCore])
+    #expect(packageTests?.dependencies == ["swiftpm:Packages/Shared/Feature"])
+    #expect(tuistFeature?.dependencies == ["tuist:Modules/Core/Core"])
+    #expect(tuistFeature?.sourceRoots == ["Modules/Feature/Sources"])
+    #expect(graph.module(containing: "Modules/Feature/Sources/View.swift")?.id == tuistFeature?.id)
+    #expect(graph.modules.allSatisfy { !$0.dependencies.contains($0.id) })
+}
+
+@Test func reportsHelperGeneratedTuistGraphAsIncomplete() throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try """
+    import ProjectDescriptionHelpers
+    let project = Project.featureFramework(name: "Profile")
+    """.write(to: root.appending(path: "Project.swift"), atomically: true, encoding: .utf8)
+
+    let graph = try ModuleGraphBuilder().build(root: root)
+    #expect(graph.diagnostics.map(\.code) == ["VDG001"])
+    #expect(graph.summary.diagnosticCount == 1)
+}
+
+@Test func changedGitScopeIncludesUntrackedFilesWhileStagedScopeDoesNot() throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try runGit(["init", "--quiet"], at: root)
+    try runGit(["config", "user.name", "ViewDoctor Tests"], at: root)
+    try runGit(["config", "user.email", "tests@example.invalid"], at: root)
+    let tracked = root.appending(path: "Tracked.swift")
+    try "let value = 1\n".write(to: tracked, atomically: true, encoding: .utf8)
+    try runGit(["add", "Tracked.swift"], at: root)
+    try runGit(["commit", "--quiet", "-m", "fixture"], at: root)
+
+    try "let value = 2\n".write(to: tracked, atomically: true, encoding: .utf8)
+    try "let newValue = 1\n".write(to: root.appending(path: "New.swift"), atomically: true, encoding: .utf8)
+    #expect(try GitChanges.swiftFiles(root: root, scope: .changed(base: nil)) == ["Tracked.swift", "New.swift"])
+    #expect(try GitChanges.swiftFiles(root: root, scope: .staged).isEmpty)
+
+    try runGit(["add", "Tracked.swift"], at: root)
+    #expect(try GitChanges.swiftFiles(root: root, scope: .staged) == ["Tracked.swift"])
+}
+
+@Test func changedGitScopeWorksBeforeTheFirstCommit() throws {
+    let root = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    try runGit(["init", "--quiet"], at: root)
+    try "let value = 1\n".write(to: root.appending(path: "New.swift"), atomically: true, encoding: .utf8)
+
+    #expect(try GitChanges.swiftFiles(root: root, scope: .changed(base: nil)) == ["New.swift"])
+    try runGit(["add", "New.swift"], at: root)
+    #expect(try GitChanges.swiftFiles(root: root, scope: .changed(base: nil)) == ["New.swift"])
+    #expect(try GitChanges.swiftFiles(root: root, scope: .staged) == ["New.swift"])
+}
+
 @Test func configurationBoundsAgentOutputAndExcludesTrees() {
     let configuration = ScanConfiguration(
         excludedPaths: ["Generated", "Modules/Legacy"],
@@ -134,4 +241,18 @@ import ViewDoctorGraph
     let file = SourceFile(absoluteURL: URL(fileURLWithPath: "/tmp/Icon.swift"), relativePath: "Icon.swift", module: nil)
     let findings = ExpensiveBodyConstructionRule().evaluate(facts: SyntaxFactExtractor.swiftUIBodyFacts(source: source), file: file)
     #expect(findings.count == 1)
+}
+
+private func runGit(_ arguments: [String], at root: URL) throws {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+    process.currentDirectoryURL = root
+    process.arguments = arguments
+    process.standardOutput = Pipe()
+    process.standardError = Pipe()
+    try process.run()
+    process.waitUntilExit()
+    guard process.terminationStatus == 0 else {
+        throw CocoaError(.fileWriteUnknown)
+    }
 }

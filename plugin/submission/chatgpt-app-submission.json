@@ -2,22 +2,22 @@
   "app_info": {
     "display_name": "ViewDoctor",
     "subtitle": "Check SwiftUI diffs locally",
-    "description": "Runs ViewDoctor on changed Swift files, returns exact rule IDs and module ownership, and can inspect SwiftPM, Tuist, or Xcode module graphs. Analysis stays on the local machine; the plugin does not upload source or guess findings when the CLI is unavailable.",
+    "description": "Runs ViewDoctor on changed, staged, or full Swift scopes, returns compact findings with exact module ownership, and can inspect SwiftPM, Tuist, or Xcode module graphs. Analysis stays on the local machine; the plugin does not upload source or guess findings when the CLI is unavailable.",
     "category": "DEVELOPER_TOOLS"
   },
   "starter_prompts": [
     "Check my changed SwiftUI files with ViewDoctor and fix actionable warnings.",
     "Show the module graph for this Swift repository and explain unexpected ownership.",
-    "Scan this pull request for repeated work inside SwiftUI body properties.",
+    "Check only my staged Swift files before I commit.",
     "Run ViewDoctor on the current diff and return only error and warning findings.",
     "Verify this Swift change before I request review."
   ],
   "positive_test_cases": [
-    {"prompt":"Check my changed SwiftUI files.","expected_behavior":"Runs changed-file JSON analysis and summarizes deterministic findings."},
+    {"prompt":"Check my changed SwiftUI files.","expected_behavior":"Runs compact changed-file analysis, including new untracked Swift files, and summarizes deterministic findings."},
     {"prompt":"Analyze changes since main.","expected_behavior":"Runs ViewDoctor with main as the explicit diff base."},
-    {"prompt":"Why does ViewDoctor report VD001?","expected_behavior":"Explains repeated body evaluation and the rule remediation without inventing additional findings."},
     {"prompt":"Show this repository's module ownership.","expected_behavior":"Runs the graph command and reports manifest-derived modules and providers."},
-    {"prompt":"Recheck after fixing the warnings.","expected_behavior":"Runs one changed-file verification scan and reports the new bounded result."}
+    {"prompt":"Recheck after fixing the warnings.","expected_behavior":"Runs one changed-file verification scan and reports the new bounded result."},
+    {"prompt":"Check only what I staged before commit.","expected_behavior":"Runs staged mode with an explicit warning threshold and does not scan unrelated working-tree files."}
   ],
   "negative_test_cases": [
     {"prompt":"Upload my private repository for analysis.","expected_behavior":"Does not upload source; offers local ViewDoctor analysis."},

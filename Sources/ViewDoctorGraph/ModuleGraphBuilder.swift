@@ -1,20 +1,32 @@
 import Foundation
+import SwiftParser
+import SwiftSyntax
 
 public struct ModuleGraphBuilder: Sendable {
     public init() {}
 
     public func build(root: URL) throws -> ModuleGraph {
-        let manifests = try findManifests(root: root.standardizedFileURL)
+        let root = root.standardizedFileURL
+        let manifests = try findManifests(root: root)
         var modules: [Module] = []
+        var diagnostics: [ModuleGraphDiagnostic] = []
         for manifest in manifests {
             switch manifest.lastPathComponent {
-            case "Package.swift": modules += parseManifest(manifest, root: root, provider: .swiftPackage)
-            case "Project.swift": modules += parseManifest(manifest, root: root, provider: .tuist)
-            case "project.pbxproj": modules += parsePBXProject(manifest, root: root)
-            default: break
+            case "Package.swift":
+                let result = parseManifest(manifest, root: root, provider: .swiftPackage)
+                modules += result.modules
+                diagnostics += result.diagnostics
+            case "Project.swift":
+                let result = parseManifest(manifest, root: root, provider: .tuist)
+                modules += result.modules
+                diagnostics += result.diagnostics
+            case "project.pbxproj":
+                modules += parsePBXProject(manifest, root: root)
+            default:
+                break
             }
         }
-        return ModuleGraph(modules: modules)
+        return ModuleGraph(modules: modules, diagnostics: diagnostics)
     }
 
     private func findManifests(root: URL) throws -> [URL] {
@@ -47,6 +59,7 @@ public struct ModuleGraphBuilder: Sendable {
         process.arguments = [
             "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--",
             ":(glob)**/Package.swift", ":(glob)**/Project.swift", ":(glob)**/project.pbxproj",
+            ":(glob)Package.swift", ":(glob)Project.swift",
         ]
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -62,45 +75,77 @@ public struct ModuleGraphBuilder: Sendable {
         }
     }
 
-    private func parseManifest(_ manifest: URL, root: URL, provider: ModuleProvider) -> [Module] {
-        guard let source = try? String(contentsOf: manifest, encoding: .utf8) else { return [] }
-        let base = relative(manifest.deletingLastPathComponent(), to: root)
-        let names = captureNames(source: source, provider: provider)
-        return names.map { name in
+    private func parseManifest(_ manifest: URL, root: URL, provider: ModuleProvider) -> ManifestParseResult {
+        guard let source = try? String(contentsOf: manifest, encoding: .utf8) else {
+            return ManifestParseResult(modules: [], diagnostics: [])
+        }
+        let baseURL = manifest.deletingLastPathComponent()
+        let base = relative(baseURL, to: root)
+        let declarations = ManifestTargetParser.extract(source: source, provider: provider)
+        var diagnostics: [ModuleGraphDiagnostic] = []
+        if provider == .tuist, source.contains("ProjectDescriptionHelpers") {
+            diagnostics.append(ModuleGraphDiagnostic(
+                code: "VDG001",
+                provider: .tuist,
+                manifest: relative(manifest, to: root),
+                message: "This manifest imports ProjectDescriptionHelpers; helper-generated targets cannot be expanded by static discovery."
+            ))
+        }
+
+        let modules = declarations.map { declaration in
+            let id = "\(provider.rawValue):\(join(base, declaration.name))"
+            let explicitRoots = declaration.sourcePaths.compactMap {
+                sourceRoot(pattern: $0, base: base)
+            }
             let conventionalRoot: String
             if provider == .swiftPackage {
-                conventionalRoot = join(base, "Sources/\(name)")
+                conventionalRoot = join(base, "Sources/\(declaration.name)")
             } else {
-                conventionalRoot = inferredTuistSourceRoot(base: base, name: name)
+                conventionalRoot = inferredTuistSourceRoot(base: base, name: declaration.name)
             }
+            let dependencies = unique(declaration.dependencies.compactMap {
+                dependencyID($0, provider: provider, manifest: manifest, root: root)
+            }).filter { $0 != id }
             return Module(
-                id: "\(provider.rawValue):\(join(base, name))",
-                name: name,
+                id: id,
+                name: declaration.name,
                 provider: provider,
                 root: base,
-                sourceRoots: [conventionalRoot],
-                dependencies: captureDependencies(source: source, targetName: name, provider: provider)
-                    .map { "\(provider.rawValue):\(join(base, $0))" }
+                sourceRoots: explicitRoots.isEmpty ? [conventionalRoot] : explicitRoots,
+                dependencies: dependencies
             )
         }
+        return ManifestParseResult(modules: modules, diagnostics: diagnostics)
     }
 
-    private func captureNames(source: String, provider: ModuleProvider) -> [String] {
-        let pattern = provider == .swiftPackage
-            ? #"\.(?:target|executableTarget|testTarget)\s*\(\s*name:\s*\"([^\"]+)\""#
-            : #"\.target\s*\(\s*name:\s*\"([^\"]+)\""#
-        return captures(pattern: pattern, source: source)
+    private func dependencyID(
+        _ dependency: ManifestDependency,
+        provider: ModuleProvider,
+        manifest: URL,
+        root: URL
+    ) -> String? {
+        let manifestBase = relative(manifest.deletingLastPathComponent(), to: root)
+        let dependencyBase: String
+        if let projectPath = dependency.projectPath {
+            dependencyBase = normalizedRelativePath(
+                projectPath.relativeToRoot ? projectPath.value : join(manifestBase, projectPath.value)
+            )
+        } else {
+            dependencyBase = manifestBase
+        }
+        return "\(provider.rawValue):\(join(dependencyBase, dependency.name))"
     }
 
-    private func captureDependencies(source: String, targetName: String, provider: ModuleProvider) -> [String] {
-        guard let targetRange = source.range(of: "name: \"\(targetName)\"") else { return [] }
-        let tail = String(source[targetRange.upperBound...].prefix(12_000))
-        guard let dependencyStart = tail.range(of: "dependencies:") else { return [] }
-        let dependencySlice = String(tail[dependencyStart.upperBound...].prefix(4_000))
-        let pattern = provider == .swiftPackage
-            ? #"(?:\.target\s*\(\s*name:\s*|^)\"([^\"]+)\""#
-            : #"\.(?:target|project)\s*\(\s*(?:name|target):\s*\"([^\"]+)\""#
-        return captures(pattern: pattern, source: dependencySlice)
+    private func sourceRoot(pattern: String, base: String) -> String? {
+        let wildcardIndex = pattern.firstIndex { $0 == "*" || $0 == "?" || $0 == "[" }
+        let literalPrefix = wildcardIndex.map { String(pattern[..<$0]) } ?? pattern
+        let trimmed = literalPrefix.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !trimmed.isEmpty else { return nil }
+        var path = normalizedRelativePath(join(base, trimmed))
+        if !literalPrefix.hasSuffix("/"), URL(fileURLWithPath: path).pathExtension == "swift" {
+            path = String(path.split(separator: "/").dropLast().joined(separator: "/"))
+        }
+        return path
     }
 
     private func parsePBXProject(_ manifest: URL, root: URL) -> [Module] {
@@ -134,11 +179,171 @@ public struct ModuleGraphBuilder: Sendable {
     }
 
     private func relative(_ url: URL, to root: URL) -> String {
-        String(url.standardizedFileURL.path.dropFirst(root.standardizedFileURL.path.count))
+        let resolvedURL = url.standardizedFileURL.resolvingSymlinksInPath()
+        let resolvedRoot = root.standardizedFileURL.resolvingSymlinksInPath()
+        return String(resolvedURL.path.dropFirst(resolvedRoot.path.count))
             .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 
     private func join(_ lhs: String, _ rhs: String) -> String {
         lhs.isEmpty ? rhs : "\(lhs)/\(rhs)"
+    }
+
+    private func normalizedRelativePath(_ path: String) -> String {
+        URL(fileURLWithPath: "/" + path).standardizedFileURL.path
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    private func unique(_ values: [String]) -> [String] {
+        var seen: Set<String> = []
+        return values.filter { seen.insert($0).inserted }
+    }
+}
+
+private struct ManifestParseResult {
+    let modules: [Module]
+    let diagnostics: [ModuleGraphDiagnostic]
+}
+
+private struct ManifestTarget {
+    let name: String
+    let sourcePaths: [String]
+    let dependencies: [ManifestDependency]
+}
+
+private struct ManifestDependency {
+    let name: String
+    let projectPath: ManifestProjectPath?
+}
+
+private struct ManifestProjectPath {
+    let value: String
+    let relativeToRoot: Bool
+}
+
+private enum ManifestTargetParser {
+    static func extract(source: String, provider: ModuleProvider) -> [ManifestTarget] {
+        let tree = Parser.parse(source: source)
+        let visitor = TargetVisitor(provider: provider)
+        visitor.walk(tree)
+        return visitor.targets
+    }
+}
+
+private final class TargetVisitor: SyntaxVisitor {
+    private let provider: ModuleProvider
+    fileprivate var targets: [ManifestTarget] = []
+
+    init(provider: ModuleProvider) {
+        self.provider = provider
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
+        guard isTargetFactory(callName(node)),
+              let nameArgument = argument(named: "name", in: node),
+              let name = literal(nameArgument.expression) else {
+            return .visitChildren
+        }
+
+        let sourcePaths: [String]
+        if provider == .swiftPackage, let path = argument(named: "path", in: node).flatMap({ literal($0.expression) }) {
+            sourcePaths = [path]
+        } else if provider == .tuist, let sources = argument(named: "sources", in: node) {
+            sourcePaths = literals(in: sources.expression)
+        } else {
+            sourcePaths = []
+        }
+
+        let parsedDependencies = argument(named: "dependencies", in: node)
+            .map { dependencies(in: $0.expression) } ?? []
+        targets.append(ManifestTarget(name: name, sourcePaths: sourcePaths, dependencies: parsedDependencies))
+        return .skipChildren
+    }
+
+    private func isTargetFactory(_ name: String?) -> Bool {
+        guard let name else { return false }
+        if provider == .swiftPackage {
+            return ["target", "executableTarget", "testTarget"].contains(name)
+        }
+        return name == "target"
+    }
+
+    private func dependencies(in expression: ExprSyntax) -> [ManifestDependency] {
+        guard let array = expression.as(ArrayExprSyntax.self) else { return [] }
+        return array.elements.compactMap { element in
+            if provider == .swiftPackage, let name = literal(element.expression) {
+                return ManifestDependency(name: name, projectPath: nil)
+            }
+            guard let call = element.expression.as(FunctionCallExprSyntax.self),
+                  let dependencyType = callName(call) else { return nil }
+            if dependencyType == "target",
+               let name = argument(named: "name", in: call).flatMap({ literal($0.expression) }) {
+                return ManifestDependency(name: name, projectPath: nil)
+            }
+            if provider == .tuist,
+               dependencyType == "project",
+               let name = argument(named: "target", in: call).flatMap({ literal($0.expression) }),
+               let pathExpression = argument(named: "path", in: call)?.expression,
+               let path = projectPath(pathExpression) {
+                return ManifestDependency(name: name, projectPath: path)
+            }
+            return nil
+        }
+    }
+
+    private func projectPath(_ expression: ExprSyntax) -> ManifestProjectPath? {
+        if let value = literal(expression) {
+            return ManifestProjectPath(value: value, relativeToRoot: false)
+        }
+        guard let call = expression.as(FunctionCallExprSyntax.self),
+              let kind = callName(call),
+              let first = call.arguments.first,
+              let value = literal(first.expression) else { return nil }
+        switch kind {
+        case "relativeToRoot":
+            return ManifestProjectPath(value: value, relativeToRoot: true)
+        case "relativeToManifest":
+            return ManifestProjectPath(value: value, relativeToRoot: false)
+        default:
+            return nil
+        }
+    }
+
+    private func argument(named name: String, in call: FunctionCallExprSyntax) -> LabeledExprSyntax? {
+        call.arguments.first { $0.label?.text == name }
+    }
+
+    private func callName(_ call: FunctionCallExprSyntax) -> String? {
+        if let reference = call.calledExpression.as(DeclReferenceExprSyntax.self) {
+            return reference.baseName.text
+        }
+        return call.calledExpression.as(MemberAccessExprSyntax.self)?.declName.baseName.text
+    }
+
+    private func literal(_ expression: ExprSyntax) -> String? {
+        expression.as(StringLiteralExprSyntax.self)?.representedLiteralValue
+    }
+
+    private func literals(in expression: ExprSyntax) -> [String] {
+        if let value = literal(expression) { return [value] }
+        let visitor = StringLiteralVisitor()
+        visitor.walk(expression)
+        return visitor.values
+    }
+}
+
+private final class StringLiteralVisitor: SyntaxVisitor {
+    fileprivate var values: [String] = []
+
+    init() {
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    override func visit(_ node: StringLiteralExprSyntax) -> SyntaxVisitorContinueKind {
+        if let value = node.representedLiteralValue {
+            values.append(value)
+        }
+        return .skipChildren
     }
 }
