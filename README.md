@@ -124,10 +124,10 @@ Exit codes:
 
 ## Coding-agent integration
 
-The repository contains a local Codex/OpenAI skill in `plugin/`. Its workflow
-uses changed-file analysis, bounds output, and refuses to fabricate findings
-when the executable is unavailable. The CLI remains the source of truth; agent
-skills and future local MCP servers are thin adapters.
+The repository contains a Codex/OpenAI skill and local MCP server in `plugin/`.
+The MCP tools call the same CLI without a shell, keep source on the local
+machine, and expose scans and module graphs to coding agents. The CLI remains
+the source of truth; the skill and MCP server are thin adapters.
 
 ## Roadmap
 
@@ -135,7 +135,7 @@ skills and future local MCP servers are thin adapters.
 - module dependency-cycle and undeclared-import rules;
 - body complexity and identity rules with low-noise fixtures;
 - prebuilt release artifacts and Homebrew installation;
-- local MCP adapter over the versioned CLI contract;
+- signed release artifacts and package-manager installation;
 - incremental cache and dependency-cone analysis.
 
 ## Privacy
