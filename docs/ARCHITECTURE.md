@@ -37,6 +37,6 @@ breaking changes require a new schema version.
 
 ## Privacy boundary
 
-Analysis is local. A future MCP adapter must execute the local binary and return
-bounded structured findings. It must not upload source to a hosted analyzer.
-
+Analysis is local. The MCP adapter executes the local binary and returns bounded
+structured findings. It does not upload source to a hosted analyzer. The MCPB
+release bundles both layers so clients do not need a separate server install.

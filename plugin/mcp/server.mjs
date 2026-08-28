@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const server = new McpServer({ name: "viewdoctor", version: "0.1.0" });
+const server = new McpServer({ name: "viewdoctor", version: "0.1.4" });
 
 export function runViewDoctor(args, options = {}) {
   const executable = options.executable ?? process.env.VIEWDOCTOR_BIN ?? "viewdoctor";
@@ -57,6 +58,15 @@ server.registerTool("viewdoctor_graph", {
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 }, async ({ root }) => toolResult(await runViewDoctor(["graph", resolve(root)])));
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(resolve(process.argv[1]));
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   await server.connect(new StdioServerTransport());
 }

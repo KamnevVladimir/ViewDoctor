@@ -12,10 +12,14 @@ jobs:
   test:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Test
         run: swift test
       - name: Build release
         run: swift build -c release
       - name: Self scan
         run: .build/release/viewdoctor scan . --format json > /tmp/viewdoctor.json
+      - name: Test MCP adapter
+        run: |
+          npm ci --prefix plugin/mcp
+          npm test --prefix plugin/mcp

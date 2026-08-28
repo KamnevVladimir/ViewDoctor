@@ -1,0 +1,39 @@
+{
+  "manifest_version": "0.3",
+  "name": "viewdoctor",
+  "display_name": "ViewDoctor",
+  "version": "0.1.4",
+  "description": "Run local deterministic SwiftUI diff checks with module ownership.",
+  "long_description": "ViewDoctor maps SwiftPM, Tuist, Xcode, and folder-derived modules before scanning changed SwiftUI files. The bundle runs locally, returns bounded findings, and does not upload repository source.",
+  "author": {
+    "name": "Vladimir Kamnev",
+    "url": "https://kamnevapps.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KamnevVladimir/ViewDoctor.git"
+  },
+  "homepage": "https://kamnevapps.com/viewdoctor/",
+  "documentation": "https://github.com/KamnevVladimir/ViewDoctor#readme",
+  "support": "https://github.com/KamnevVladimir/ViewDoctor/issues",
+  "icon": "icon.png",
+  "license": "MIT",
+  "keywords": ["swift", "swiftui", "static-analysis", "modules", "tuist"],
+  "compatibility": {
+    "platforms": ["darwin"],
+    "runtimes": {
+      "node": ">=20"
+    }
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/server.mjs",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/server.mjs"],
+      "env": {
+        "VIEWDOCTOR_BIN": "${__dirname}/bin/viewdoctor"
+      }
+    }
+  }
+}

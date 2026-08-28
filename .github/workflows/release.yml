@@ -2,24 +2,39 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*.*.*"]
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
-      - run: swift build -c release
-      - name: Package
+      - uses: actions/checkout@v6
+      - name: Build MCP bundle
+        run: scripts/build-mcpb.sh "${GITHUB_REF_NAME#v}"
+      - name: Package CLI
         run: |
           mkdir ViewDoctor-macos
-          cp .build/release/viewdoctor ViewDoctor-macos/
+          cp .build/apple/Products/Release/viewdoctor ViewDoctor-macos/
           cp README.md LICENSE ViewDoctor-macos/
           ditto -c -k --sequesterRsrc --keepParent ViewDoctor-macos ViewDoctor-macos.zip
+      - name: Render MCP Registry metadata
+        run: node scripts/render-registry-server.mjs "${GITHUB_REF_NAME#v}" "dist/ViewDoctor-${GITHUB_REF_NAME}.mcpb" ".build/mcp-registry/server.json"
       - uses: softprops/action-gh-release@v2
         with:
-          files: ViewDoctor-macos.zip
+          files: |
+            ViewDoctor-macos.zip
+            dist/ViewDoctor-${{ github.ref_name }}.mcpb
+            .build/mcp-registry/server.json
           generate_release_notes: true
+      - name: Install MCP publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/v1.7.9/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - name: Publish to the official MCP Registry
+        run: |
+          ./mcp-publisher validate .build/mcp-registry/server.json
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish .build/mcp-registry/server.json

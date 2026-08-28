@@ -110,7 +110,7 @@ jobs:
   analyze:
     runs-on: macos-26
     steps:
-  - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: KamnevVladimir/ViewDoctor@v0
@@ -154,8 +154,8 @@ machine, and expose scans and module graphs to coding agents. The CLI remains
 the source of truth; the skill and MCP server are thin adapters.
 
 The release also includes a macOS MCP Bundle. Install
-`ViewDoctor-v0.1.4.mcpb` from the GitHub release in any client that supports
-MCPB, or discover it in the official MCP Registry as
+[`ViewDoctor-v0.1.4.mcpb`](https://github.com/KamnevVladimir/ViewDoctor/releases/download/v0.1.4/ViewDoctor-v0.1.4.mcpb)
+in any client that supports MCPB, or discover it in the official MCP Registry as
 `io.github.kamnevvladimir/viewdoctor`. The bundle contains the local CLI and
 stdio adapter; repository source is not sent to a hosted service.
 
