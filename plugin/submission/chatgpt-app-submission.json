@@ -1,8 +1,8 @@
 {
   "app_info": {
     "display_name": "ViewDoctor",
-    "subtitle": "SwiftUI checks for agents",
-    "description": "Runs deterministic SwiftUI and multi-module checks after code changes so developers and coding agents can fix focused findings without reading long build logs or uploading source code.",
+    "subtitle": "Check SwiftUI diffs locally",
+    "description": "Runs ViewDoctor on changed Swift files, returns exact rule IDs and module ownership, and can inspect SwiftPM, Tuist, or Xcode module graphs. Analysis stays on the local machine; the plugin does not upload source or guess findings when the CLI is unavailable.",
     "category": "DEVELOPER_TOOLS"
   },
   "starter_prompts": [
@@ -10,7 +10,7 @@
     "Show the module graph for this Swift repository and explain unexpected ownership.",
     "Scan this pull request for repeated work inside SwiftUI body properties.",
     "Run ViewDoctor on the current diff and return only error and warning findings.",
-    "Verify this AI-generated Swift change before I request review."
+    "Verify this Swift change before I request review."
   ],
   "positive_test_cases": [
     {"prompt":"Check my changed SwiftUI files.","expected_behavior":"Runs changed-file JSON analysis and summarizes deterministic findings."},

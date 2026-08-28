@@ -2,32 +2,33 @@
 
 <img src="docs/assets/viewdoctor-icon-1024.png" alt="ViewDoctor" width="120">
 
-**Static analysis for SwiftUI, multi-module Swift projects, and AI coding agents.**
+**Check SwiftUI diffs with module ownership attached.**
 
-ViewDoctor gives developers and coding agents compact, deterministic feedback
-without building an Xcode workspace or uploading source code. It understands
-Swift Package Manager, Tuist, Xcode projects, and common folder-based module
-layouts, then attaches module ownership to every finding.
+ViewDoctor maps modules from Swift Package Manager, Tuist, Xcode projects, and
+common source layouts before it scans SwiftUI code. Run it after a human or
+coding agent changes a diff; the result stays local and can be read as terminal
+text, versioned JSON, or SARIF.
 
 ```text
 Modules/Profile/Sources/ProfileView.swift:42:18: warning: VD001 [tuist:Modules/Profile/Profile]: DateFormatter is constructed inside a body property.
 ViewDoctor: 1 finding(s) in 12 file(s), 4 module(s).
 ```
 
-## Why ViewDoctor
+## The review loop
 
-AI can generate Swift code faster than a team can review it. General style
-linters are valuable, but they do not give an agent a small contract for
-SwiftUI performance risks, task lifetime, and module ownership. ViewDoctor is
-designed for the loop:
+A small generated diff should not require sending the repository back to a
+general model just to look for three known SwiftUI risks. ViewDoctor gives those
+checks stable rule IDs, exact locations, module ownership, and bounded output:
 
 `edit -> scan changed files -> fix findings -> verify once`
 
-- Local-first: no source uploads and no telemetry.
-- Multi-module-first: manifest-derived graph and stable module identifiers.
-- Agent-friendly: versioned JSON with explanations and remediation.
-- CI-friendly: SARIF, relative paths, deterministic ordering, and exit codes.
-- Complementary: use it with the Swift compiler, SwiftLint, Periphery, and Instruments.
+- It reads source locally and has no telemetry.
+- Manifest-derived identifiers keep findings useful in large repositories.
+- JSON includes explanations and remediation; SARIF works in code scanning.
+- Deterministic ordering and exit codes make the same command useful in CI.
+
+ViewDoctor complements the Swift compiler, SwiftLint, Periphery, and
+Instruments. It does not replace builds, profiling, or architecture review.
 
 ## Install and run
 
@@ -85,6 +86,10 @@ changed module and modules that depend on it without scanning unrelated features
 Rules intentionally use conservative language: a finding is a reviewable risk,
 not a claim that profiling has proven a performance regression.
 
+The current release has three rules. It does not yet enforce dependency
+direction, detect cycles, or prove runtime performance. Those are explicit
+roadmap items rather than implied capabilities.
+
 ## GitHub Action
 
 ```yaml
@@ -133,10 +138,9 @@ the source of truth; the skill and MCP server are thin adapters.
 
 ## Roadmap
 
-- explicit configuration and baselines;
+- baselines for existing findings;
 - module dependency-cycle and undeclared-import rules;
 - body complexity and identity rules with low-noise fixtures;
-- prebuilt release artifacts and Homebrew installation;
 - signed release artifacts and package-manager installation;
 - incremental cache and dependency-cone analysis.
 
