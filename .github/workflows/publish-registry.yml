@@ -1,0 +1,45 @@
+name: Publish MCP Registry
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing ViewDoctor release version without the v prefix
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+      - name: Download existing MCP bundle
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          mkdir -p dist
+          curl -fsSL "https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/ViewDoctor-v${VERSION}.mcpb" \
+            -o "dist/ViewDoctor-v${VERSION}.mcpb"
+      - name: Render and validate registry metadata
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          node scripts/render-registry-server.mjs "$VERSION" "dist/ViewDoctor-v${VERSION}.mcpb" ".build/mcp-registry/server.json"
+          test "$(jq -r '.description | length' .build/mcp-registry/server.json)" -le 100
+      - name: Install MCP publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/download/v1.7.9/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+      - name: Publish to the official MCP Registry
+        run: |
+          ./mcp-publisher validate .build/mcp-registry/server.json
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish .build/mcp-registry/server.json
