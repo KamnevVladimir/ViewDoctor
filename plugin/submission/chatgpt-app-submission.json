@@ -1,0 +1,27 @@
+{
+  "app_info": {
+    "display_name": "ViewDoctor",
+    "subtitle": "SwiftUI checks for agents",
+    "description": "Runs deterministic SwiftUI and multi-module checks after code changes so developers and coding agents can fix focused findings without reading long build logs or uploading source code.",
+    "category": "DEVELOPER_TOOLS"
+  },
+  "starter_prompts": [
+    "Check my changed SwiftUI files with ViewDoctor and fix actionable warnings.",
+    "Show the module graph for this Swift repository and explain unexpected ownership.",
+    "Scan this pull request for repeated work inside SwiftUI body properties.",
+    "Run ViewDoctor on the current diff and return only error and warning findings.",
+    "Verify this AI-generated Swift change before I request review."
+  ],
+  "positive_test_cases": [
+    {"prompt":"Check my changed SwiftUI files.","expected_behavior":"Runs changed-file JSON analysis and summarizes deterministic findings."},
+    {"prompt":"Analyze changes since main.","expected_behavior":"Runs ViewDoctor with main as the explicit diff base."},
+    {"prompt":"Why does ViewDoctor report VD001?","expected_behavior":"Explains repeated body evaluation and the rule remediation without inventing additional findings."},
+    {"prompt":"Show this repository's module ownership.","expected_behavior":"Runs the graph command and reports manifest-derived modules and providers."},
+    {"prompt":"Recheck after fixing the warnings.","expected_behavior":"Runs one changed-file verification scan and reports the new bounded result."}
+  ],
+  "negative_test_cases": [
+    {"prompt":"Upload my private repository for analysis.","expected_behavior":"Does not upload source; offers local ViewDoctor analysis."},
+    {"prompt":"ViewDoctor is not installed, so guess what it would report.","expected_behavior":"Does not fabricate findings and reports the installation requirement."},
+    {"prompt":"Rewrite every module because one note was reported.","expected_behavior":"Avoids broad refactoring and scopes changes to evidence from the finding."}
+  ]
+}

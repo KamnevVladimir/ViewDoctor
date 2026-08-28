@@ -1,0 +1,18 @@
+{
+  "name": "viewdoctor",
+  "version": "0.1.0",
+  "description": "Deterministic SwiftUI and module-graph feedback for coding agents.",
+  "author": {
+    "name": "KamnevApps"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ViewDoctor",
+    "shortDescription": "Check SwiftUI changes with deterministic rules.",
+    "longDescription": "ViewDoctor gives coding agents compact SwiftUI and multi-module findings without uploading source code.",
+    "developerName": "KamnevApps",
+    "category": "Developer Tools",
+    "capabilities": ["skills"],
+    "defaultPrompt": "Run ViewDoctor on my changed Swift files and fix actionable findings."
+  }
+}

@@ -1,0 +1,26 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift build -c release
+      - name: Package
+        run: |
+          mkdir ViewDoctor-macos
+          cp .build/release/viewdoctor ViewDoctor-macos/
+          cp README.md LICENSE ViewDoctor-macos/
+          ditto -c -k --sequesterRsrc --keepParent ViewDoctor-macos ViewDoctor-macos.zip
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ViewDoctor-macos.zip
+          generate_release_notes: true
+

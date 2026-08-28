@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: swift test
+      - name: Build release
+        run: swift build -c release
+      - name: Self scan
+        run: .build/release/viewdoctor scan . --format json > /tmp/viewdoctor.json
+
