@@ -1,0 +1,11 @@
+{
+  "name": "@kamnevapps/viewdoctor-mcp",
+  "version": "0.1.0",
+  "description": "Local MCP adapter for ViewDoctor Swift static analysis.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=20" },
+  "dependencies": { "@modelcontextprotocol/sdk": "1.30.0", "zod": "^3.25.0" },
+  "scripts": { "start": "node server.mjs", "test": "node --test server.test.mjs" }
+}

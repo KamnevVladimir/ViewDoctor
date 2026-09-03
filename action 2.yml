@@ -1,0 +1,42 @@
+name: ViewDoctor SwiftUI Analysis
+description: Deterministic SwiftUI analysis for humans and coding agents
+author: KamnevApps
+inputs:
+  path:
+    description: Repository path to scan
+    required: false
+    default: .
+  diff-base:
+    description: Optional git revision used for changed-file analysis
+    required: false
+    default: ""
+  upload-sarif:
+    description: Upload SARIF to GitHub code scanning
+    required: false
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - name: Build ViewDoctor
+      shell: bash
+      run: swift build --package-path "$GITHUB_ACTION_PATH" -c release
+    - name: Analyze Swift changes
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        DIFF_BASE: ${{ inputs.diff-base }}
+      run: |
+        args=(scan "$INPUT_PATH" --format sarif)
+        if [[ -n "$DIFF_BASE" ]]; then
+          args+=(--base "$DIFF_BASE")
+        fi
+        "$GITHUB_ACTION_PATH/.build/release/viewdoctor" "${args[@]}" > viewdoctor.sarif
+    - name: Upload SARIF
+      if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: viewdoctor.sarif
+branding:
+  icon: activity
+  color: purple
+

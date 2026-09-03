@@ -1,0 +1,22 @@
+{
+  "name": "viewdoctor",
+  "version": "0.1.3",
+  "description": "Local SwiftUI diff checks with module ownership for people and coding agents.",
+  "author": {
+    "name": "KamnevApps"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "ViewDoctor",
+    "shortDescription": "Check SwiftUI diffs locally with module ownership.",
+    "longDescription": "ViewDoctor scans changed Swift files, maps SwiftPM, Tuist, and Xcode modules, and returns compact findings without uploading source code.",
+    "developerName": "KamnevApps",
+    "category": "Developer Tools",
+    "capabilities": ["skills", "local MCP"],
+    "brandColor": "#0788F5",
+    "composerIcon": "./assets/logo.png",
+    "logo": "./assets/logo.png",
+    "defaultPrompt": "Run ViewDoctor on my changed Swift files and fix actionable findings."
+  }
+}

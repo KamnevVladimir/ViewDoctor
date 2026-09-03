@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "viewdoctor": {
+      "command": "node",
+      "args": ["${pluginRoot}/mcp/server.mjs"],
+      "env": {
+        "VIEWDOCTOR_BIN": "viewdoctor"
+      }
+    }
+  }
+}
